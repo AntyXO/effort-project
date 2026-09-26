@@ -1,0 +1,37 @@
+{
+  "name": "@antyxo/effort-project",
+  "version": "0.1.0",
+  "description": "A local, transparent effort controller for coding agents.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "effort": "bin/effort.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node bin/effort.mjs dashboard",
+    "check": "node scripts/check.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "web",
+    "docs",
+    "examples",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CONTRIBUTING.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AntyXO/effort-project.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AntyXO/effort-project/issues"
+  },
+  "homepage": "https://github.com/AntyXO/effort-project#readme"
+}

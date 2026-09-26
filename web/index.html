@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="description" content="A transparent local effort controller for coding agents. Inspect recommendations and the evidence behind every managed run.">
+    <title>Effort — Local control</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to dashboard</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="#main" aria-label="Effort dashboard">
+          <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 29V20M16 29V13M24 29V7M32 29V17" stroke="currentColor" stroke-width="4" stroke-linecap="square"/></svg>
+          <span class="brand-name">effort<span class="brand-period">.</span></span>
+          <span class="brand-divider" aria-hidden="true"></span>
+          <span class="brand-caption">LOCAL CONTROL</span>
+        </a>
+        <div class="header-tools">
+          <span class="connection" id="connection" data-state="loading"><span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span></span>
+          <button class="button button-quiet refresh-button" id="refresh-button" type="button" aria-label="Refresh local task history">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16 8a6.2 6.2 0 0 0-10.4-3L3 7m0 0V3m0 4h4M4 12a6.2 6.2 0 0 0 10.4 3l2.6-2m0 0v4m0-4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1" class="main-shell">
+      <section class="intro" aria-labelledby="page-title">
+        <div class="intro-copy">
+          <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span>THE EFFORT PROJECT</p>
+          <h1 id="page-title">Your effort,<br><span>under control.</span></h1>
+          <p class="intro-description">Give each task a considered starting point.<br class="desktop-break"> Let verification guide the next attempt.</p>
+        </div>
+        <aside class="intro-note" aria-label="How Effort works">
+          <div class="flow" aria-hidden="true"><span>01</span><i></i><span>02</span><i></i><span>03</span></div>
+          <p class="flow-labels"><span>Assess</span><span>Run</span><span>Verify</span></p>
+          <p class="intro-note-text">A local policy. An explicit decision.<br>An evidence trail you can inspect.</p>
+          <span class="mode-label">Free software <span aria-hidden="true">·</span> Provider usage may cost</span>
+        </aside>
+      </section>
+
+      <nav class="section-nav" aria-label="Dashboard sections">
+        <a href="#history" class="nav-current">Run history</a>
+        <a href="#sandbox">Recommendation sandbox</a>
+        <a href="#compatibility">Compatibility</a>
+        <a href="#setup">Get started <span aria-hidden="true">↗</span></a>
+        <span class="nav-meta" id="policy-label">Local policy</span>
+      </nav>
+
+      <div class="notice" id="status-notice" role="status" hidden></div>
+
+      <section class="stats" aria-label="Recent task outcomes, latest 100 runs" aria-busy="true" id="stats">
+        <div class="stat"><span class="stat-label">Recent runs</span><span class="stat-value" id="stat-tasks">—</span><span class="stat-caption">Latest 100 local records</span></div>
+        <div class="stat"><span class="stat-label"><span class="small-dot dot-success" aria-hidden="true"></span>Verified</span><span class="stat-value" id="stat-verified">—</span><span class="stat-caption">Verification command passed</span></div>
+        <div class="stat"><span class="stat-label"><span class="small-dot dot-amber" aria-hidden="true"></span>Unverified</span><span class="stat-value" id="stat-unverified">—</span><span class="stat-caption">No passing verification</span></div>
+        <div class="stat"><span class="stat-label"><span class="small-dot dot-muted" aria-hidden="true"></span>Stopped / blocked</span><span class="stat-value" id="stat-blocked">—</span><span class="stat-caption">Blocked, failed, or cancelled</span></div>
+      </section>
+
+      <div class="work-grid">
+        <section class="panel history-panel" id="history" aria-labelledby="history-title">
+          <div class="panel-heading">
+            <div><p class="eyebrow section-eyebrow">01 / OBSERVE</p><h2 id="history-title">The evidence trail</h2></div>
+            <span class="small-label" id="history-count">Loading</span>
+          </div>
+          <div class="history-toolbar">
+            <p>Recent managed runs and their outcomes.</p>
+            <label class="sr-only" for="status-filter">Filter runs by outcome</label>
+            <select id="status-filter" disabled>
+              <option value="all">All outcomes</option>
+              <option value="verified">Verified</option>
+              <option value="unverified">Unverified</option>
+              <option value="blocked">Blocked</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="history-content" id="history-content" aria-busy="true">
+            <div class="loading-state"><span class="loading-line"></span><span class="loading-line"></span><span class="loading-line"></span><p>Reading local history…</p></div>
+          </div>
+          <div class="history-footnote"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M9 8v4m0-6v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><p>“Verified” means the selected verification command passed. It does not establish overall correctness.</p></div>
+        </section>
+
+        <section class="panel sandbox-panel" id="sandbox" aria-labelledby="sandbox-title">
+          <div class="panel-heading"><div><p class="eyebrow section-eyebrow">02 / EXPLORE</p><h2 id="sandbox-title">Find a starting point</h2></div><span class="sandbox-tag">SANDBOX</span></div>
+          <p class="panel-description">Describe the work. See what the local policy recommends, and why.</p>
+          <form id="recommend-form">
+            <fieldset class="provider-fieldset"><legend>Target provider</legend><div class="provider-picker">
+              <label><input type="radio" name="provider" value="codex" checked><span>Codex</span></label>
+              <label><input type="radio" name="provider" value="claude"><span>Claude</span></label>
+              <label><input type="radio" name="provider" value="generic"><span>Generic</span></label>
+            </div></fieldset>
+            <label class="field-label" for="task-prompt">What needs doing?</label>
+            <textarea id="task-prompt" name="prompt" rows="4" maxlength="16000" required placeholder="e.g. Find why the queue processes the same job twice, then fix the race condition." aria-describedby="prompt-help"></textarea>
+            <p class="field-help" id="prompt-help">Assessed locally. This does not launch an agent.</p>
+            <button class="button button-primary recommend-button" id="recommend-button" type="submit"><span id="recommend-button-label">Recommend effort</span><span aria-hidden="true">↗</span></button>
+          </form>
+          <div class="recommendation" id="recommendation" data-state="idle" aria-live="polite" aria-atomic="true">
+            <div class="recommendation-idle"><span class="idle-glyph" aria-hidden="true">↳</span><p>Start with a task.<br><span>The reasoning will appear here.</span></p></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="compatibility-section" id="compatibility" aria-labelledby="compatibility-title">
+        <div class="section-heading"><div><p class="eyebrow section-eyebrow">03 / KNOW THE BOUNDARY</p><h2 id="compatibility-title">Control, where it is supported.</h2></div><p>Managed CLI runs use verification to guide the next attempt.<br>Desktop integrations provide advice.</p></div>
+        <div class="compatibility-list" id="compatibility-list" aria-busy="true"><p class="muted compatibility-loading">Reading provider capabilities…</p></div>
+        <p class="compatibility-footnote">Effort cannot change reasoning midway through a model response. Desktop advice does not change the app’s selected effort setting.</p>
+      </section>
+
+      <section class="setup-section" id="setup" aria-labelledby="setup-title">
+        <div class="section-heading"><div><p class="eyebrow section-eyebrow">04 / FROM YOUR TERMINAL</p><h2 id="setup-title">Make the next run count.</h2></div><p>This dashboard observes and recommends.<br>Start managed runs in your own repository.</p></div>
+        <div class="setup-grid">
+          <article class="setup-item"><div class="setup-number">1</div><div class="setup-item-body"><h3>Check your environment</h3><p>See which local providers are available.</p><div class="command-box"><code id="command-doctor">effort doctor</code><button class="copy-button" type="button" data-copy="command-doctor" aria-label="Copy environment check command">Copy</button></div></div></article>
+          <article class="setup-item"><div class="setup-number">2</div><div class="setup-item-body"><h3>Preview a decision</h3><p>Get a local recommendation from the command line.</p><div class="command-box"><code id="command-recommend">effort recommend "Fix a race condition in the queue" --provider codex</code><button class="copy-button" type="button" data-copy="command-recommend" aria-label="Copy recommendation command">Copy</button></div></div></article>
+          <article class="setup-item setup-item-wide"><div class="setup-number">3</div><div class="setup-item-body"><h3>Run with a verification command</h3><p>Replace the repository path and choose a check for your project. This example allows the agent to write to that repository.</p><div class="command-box"><code id="command-run">effort run "Fix the failing tests" --provider codex --cwd /path/to/repo --allow-write --verify '["node","--test"]' --max-attempts 3</code><button class="copy-button" type="button" data-copy="command-run" aria-label="Copy managed run example">Copy</button></div></div></article>
+          <article class="setup-item setup-item-wide"><div class="setup-number">4</div><div class="setup-item-body"><h3>Bring the advice to your desktop</h3><p>Print manual MCP setup instructions for your app. Desktop integration is advisory; it does not control the app’s effort setting.</p><div class="desktop-command-grid"><div class="command-box"><code id="command-codex">effort config codex</code><button class="copy-button" type="button" data-copy="command-codex" aria-label="Copy Codex desktop configuration command">Copy</button></div><div class="command-box"><code id="command-claude">effort config claude</code><button class="copy-button" type="button" data-copy="command-claude" aria-label="Copy Claude desktop configuration command">Copy</button></div></div></div></article>
+        </div>
+      </section>
+      <footer class="site-footer"><span class="footer-brand">effort<span>.</span></span><div><p>Local decisions. Visible evidence. Your control.</p><p class="footer-cost">Free local software. Provider usage may cost.</p></div><span id="version-label">The Effort Project</span></footer>
+    </main>
+
+    <dialog class="task-dialog" id="task-dialog" aria-labelledby="task-dialog-title">
+      <div class="dialog-header"><div><p class="eyebrow section-eyebrow">RUN DETAILS</p><h2 id="task-dialog-title">Inspect a run</h2></div><button class="dialog-close button button-quiet" id="dialog-close" type="button" aria-label="Close run details">Close <span aria-hidden="true">×</span></button></div>
+      <div id="task-dialog-content" class="dialog-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <div id="announcements" class="sr-only" aria-live="polite"></div>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+.effort/
+*.tgz
+.DS_Store
+coverage/
+work/
+.env
+.env.*
+*.log

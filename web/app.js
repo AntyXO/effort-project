@@ -1,9 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
 const sessionKey = 'effort.dashboard.token';
+const isLocalFile = window.location.protocol === 'file:';
 const knownStatuses = new Set(['verified', 'unverified', 'blocked', 'failed', 'cancelled']);
 let dashboard = null;
 let dashboardFingerprint = null;
 let refreshPending = false;
+let refreshQueued = false;
+let sessionRevision = 0;
 let lastRefresh = null;
 let lastTaskTrigger = null;
 let detailRequest = 0;
@@ -29,7 +32,7 @@ function readToken() {
   try { return sessionStorage.getItem(sessionKey); } catch { return null; }
 }
 
-const token = readToken();
+let token = readToken();
 
 function node(tag, className, text) {
   const result = document.createElement(tag);
@@ -103,6 +106,7 @@ function toast(message) {
 }
 
 async function api(path, options = {}) {
+  if (isLocalFile) throw new Error('Start the local dashboard with “npm start”, then open the HTTP URL it prints. This file preview cannot connect to local history.');
   if (!token) throw new Error('Open the dashboard URL printed by “effort dashboard” to connect to this local session.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -271,12 +275,17 @@ function renderCapabilities(capabilities) {
 }
 
 async function refresh({ silent = false } = {}) {
-  if (refreshPending) return;
+  if (refreshPending) {
+    if (!silent) refreshQueued = true;
+    return;
+  }
   refreshPending = true;
+  const requestSession = sessionRevision;
   $('#refresh-button').disabled = true;
   $('#refresh-button').setAttribute('aria-busy', 'true');
   try {
     const result = await api('/api/status');
+    if (requestSession !== sessionRevision) return;
     if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('The local service returned an incomplete dashboard response. Try refreshing.');
     const fingerprint = JSON.stringify(result);
     const changed = fingerprint !== dashboardFingerprint;
@@ -298,6 +307,7 @@ async function refresh({ silent = false } = {}) {
     notice();
     if (!silent) announce(`Local history refreshed. ${Array.isArray(result.tasks) ? result.tasks.length : 'Unknown number of'} recent runs.`);
   } catch (error) {
+    if (requestSession !== sessionRevision) return;
     $('#main').dataset.historyState = 'error';
     setConnection('error', token ? 'Disconnected' : 'Session needed');
     notice(`${error.message}${lastRefresh ? ` Showing the last successful update from ${dateLabel(lastRefresh, true)}.` : ''}`);
@@ -312,6 +322,10 @@ async function refresh({ silent = false } = {}) {
     refreshPending = false;
     $('#refresh-button').disabled = false;
     $('#refresh-button').setAttribute('aria-busy', 'false');
+    if (refreshQueued) {
+      refreshQueued = false;
+      refresh();
+    }
   }
 }
 
@@ -580,6 +594,19 @@ for (const link of document.querySelectorAll('.section-nav a')) {
   });
 }
 window.addEventListener('hashchange', () => {
+  if (new URLSearchParams(location.hash.slice(1)).has('token')) {
+    const nextToken = readToken();
+    if (!isLocalFile) {
+      if (nextToken !== token) {
+        token = nextToken;
+        sessionRevision += 1;
+        resetRecommendation();
+        detailRequest += 1;
+        if ($('#task-dialog').open) $('#task-dialog').close();
+      }
+      refresh();
+    }
+  }
   navigationTarget = [...document.querySelectorAll('.section-nav a')].some((link) => link.getAttribute('href') === location.hash) ? location.hash : null;
   updateNavigation();
 });
@@ -587,6 +614,11 @@ updateNavigation();
 if ('IntersectionObserver' in window) {
   const visibleSections = new Set();
   const sections = [...document.querySelectorAll('.section-nav a')].map((link) => document.getElementById(link.getAttribute('href').slice(1))).filter(Boolean);
+  const resetNavigationAtTop = () => {
+    if (navigationTarget || visibleSections.size || window.scrollY > 0) return;
+    const firstPanel = $('#work-grid')?.firstElementChild;
+    if (firstPanel) updateNavigation(`#${firstPanel.id}`);
+  };
   const updateVisibleNavigation = (entries) => {
     for (const entry of entries) {
       if (entry.isIntersecting) visibleSections.add(entry.target);
@@ -602,6 +634,7 @@ if ('IntersectionObserver' in window) {
     if (visible.some((section) => `#${section.id}` === activeSection)) return;
     visible.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
     if (visible.length) updateNavigation(`#${visible[0].id}`);
+    else resetNavigationAtTop();
   };
   let observer;
   let resizeFrame = 0;
@@ -624,9 +657,29 @@ if ('IntersectionObserver' in window) {
       observeSections();
     });
   }, { passive: true });
+  window.addEventListener('scroll', resetNavigationAtTop, { passive: true });
   observeSections();
 }
-refresh();
-setInterval(() => {
-  if (document.visibilityState === 'visible' && !$('#task-dialog').open && token) refresh({ silent: true });
-}, 20000);
+if (isLocalFile) {
+  $('#main').dataset.historyState = 'preview';
+  if ($('#local-file-help')) $('#local-file-help').hidden = false;
+  setConnection('preview', 'Preview only');
+  $('#refresh-button').disabled = true;
+  $('#refresh-button').setAttribute('aria-busy', 'false');
+  for (const control of $('#recommend-form').elements) control.disabled = true;
+  $('#stats').setAttribute('aria-busy', 'false');
+  $('#history-count').textContent = 'Not connected';
+  $('#last-updated').textContent = 'Start the local dashboard to read history';
+  $('#history-content').setAttribute('aria-busy', 'false');
+  $('#history-content').replaceChildren(makeEmpty('History needs a local connection', 'Start the local dashboard from your terminal, then open the HTTP URL it prints to read your run history.'));
+  $('#recommendation').dataset.state = 'preview';
+  $('#recommendation').replaceChildren(node('p', 'recommendation-idle', 'Recommendations become available when you open the running local dashboard.'));
+  $('#compatibility-list').setAttribute('aria-busy', 'false');
+  $('#compatibility-list').replaceChildren(node('p', 'muted compatibility-loading', 'Provider capabilities appear when the local dashboard starts.'));
+  $('#policy-label').textContent = 'Local server required';
+} else {
+  refresh();
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && !$('#task-dialog').open && token) refresh({ silent: true });
+  }, 20000);
+}

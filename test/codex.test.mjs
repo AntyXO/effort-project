@@ -209,12 +209,40 @@ test('Codex refuses server-side model substitution', async (t) => {
 
 test('Codex timeout interrupts the managed turn and reaps the CLI', async (t) => {
   const f = await setup(t, 'hang-turn');
-  const result = await run({ ...f.options, timeoutMs: 300 });
-  assert.equal(result.status, 'failed');
-  assert.ok(f.events.some((event) => event.code === 'timeout'));
-  const log = await f.readLog();
-  assert.ok(log.some((message) => message.method === 'turn/interrupt'));
-  assert.throws(() => process.kill(log[0].pid, 0), { code: 'ESRCH' });
+  const accepted = Promise.withResolvers();
+  const controller = new AbortController();
+  const realClearTimeout = clearTimeout;
+  let watchdog;
+  const deadline = new Promise((_, reject) => {
+    watchdog = setTimeout(() => reject(new Error('Timeout fixture exceeded its real-time watchdog')), 10000);
+  });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const resultPromise = run({
+    ...f.options, timeoutMs: 300, signal: controller.signal,
+    onEvent(event) {
+      f.options.onEvent(event);
+      if (event.type === 'effort' && event.accepted) accepted.resolve();
+    },
+  });
+  try {
+    await Promise.race([accepted.promise, deadline, resultPromise.then(() => {
+      throw new Error('Adapter finished before the fixture accepted its turn');
+    })]);
+    // Exercise the deadline after startup, regardless of process scheduling load.
+    t.mock.timers.tick(300);
+    t.mock.timers.reset(); // Process interruption and reaping use real timers.
+    const result = await Promise.race([resultPromise, deadline]);
+    assert.equal(result.status, 'failed');
+    assert.ok(f.events.some((event) => event.code === 'timeout'));
+    const log = await f.readLog();
+    assert.ok(log.some((message) => message.method === 'turn/interrupt'));
+    assert.throws(() => process.kill(log[0].pid, 0), { code: 'ESRCH' });
+  } finally {
+    t.mock.timers.reset();
+    realClearTimeout(watchdog);
+    controller.abort();
+    await resultPromise;
+  }
 });
 
 test('Codex abort interrupts a running turn and reaps descendants on POSIX', { skip: process.platform === 'win32' }, async (t) => {

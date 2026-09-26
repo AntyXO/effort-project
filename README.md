@@ -30,7 +30,9 @@ node bin/effort.mjs recommend "Investigate an intermittent race condition" --pro
 node bin/effort.mjs dashboard
 ```
 
-Open the local URL printed by `dashboard`. Its fragment contains an access token. The dashboard only recommends effort and reads local run metadata; it cannot launch commands. Empty history is intentional until you run a task.
+Open the local URL printed by `dashboard` and keep that terminal running. You can also start it with `npm start` from the project folder. Its fragment contains an access token. Opening `web/index.html` directly shows a preview with startup instructions; recommendations and history require the running local server and its printed URL.
+
+The dashboard only recommends effort and reads local run metadata; it cannot launch commands. Empty history is intentional until you run a task.
 
 Optional command installation from the downloaded source:
 

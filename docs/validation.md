@@ -6,13 +6,15 @@ Release: **0.1.0 experimental**, checked September 26, 2026. Development host: m
 
 The release suite covers the policy and its uncertainty, effort caps, repeated-failure recovery, environment/authentication stops, session preservation, unsupported models, approval denial, malformed and excessive provider output, subprocess timeout/abort cleanup, usage accounting, private metadata boundaries, MCP negotiation/calls/termination, and dashboard authentication/Host/Origin checks.
 
-On the development host, **70 tests passed, with zero failures or skips**. The JavaScript syntax check also passed.
+On the development host, **75 tests passed, with zero failures or skips**. The JavaScript syntax check also passed.
 
 Run `npm test` and `npm run check`. Ordinary tests use fake providers and temporary fixtures, make no paid model calls, and do not modify provider configuration. The public [CI workflow](https://github.com/AntyXO/effort-project/actions/workflows/ci.yml) runs Node 22 and 24 on Linux, macOS, and Windows; refer to the actual run for platform results. POSIX-only process-group assertions are explicitly skipped on Windows.
 
 Independent review found and corrected four defects before publication: surviving verifier descendants; unstable failure signatures caused by test timing output; swallowed MCP termination signals; and hidden provider diagnostics. Real repeated failing Node tests now produce the same signature. Verification removes node:test's inherited nesting marker so the requested child tests actually execute.
 
 The first CI matrix also exposed a Codex cancellation race on macOS/Node 24: the parent could close before a descendant was reaped. A stronger fixture reproduced that failure locally by making the child ignore SIGTERM. The adapter now confirms process-group disappearance with a bounded deadline. All 32 Codex tests and 20 repeated stubborn-child cancellations passed after the fix; the child-absence assertions remain strict.
+
+A later run alongside package checks exposed a test-only startup race: the 300ms timeout could expire before the fake CLI accepted its turn. That test now waits for acceptance, advances the same deadline with Node's mock timer, and restores real timers for cleanup. Its timeout, interrupt-message, and dead-process assertions remain intact, with a separate real-time watchdog. No provider behavior changed.
 
 ## Live provider checks
 
@@ -42,6 +44,10 @@ The September 26 dashboard usability update was checked with the real frontend a
 - Independent source review caught and corrected width-based IntersectionObserver margins and ambiguous accessible run names. Section observation uses viewport-height pixel margins and rebuilds on resize; run names include their distinguishing ID. Browser console checks found no errors in the connected review session.
 
 Impeccable's detector was unavailable because its engine was not installed; screenshots, DOM measurements, source review, and interaction checks supplied the UI evidence. Physical-device, full screen-reader, and actual 200% browser-zoom testing remain unperformed; viewport reflow is not evidence of those checks.
+
+A follow-up reproduced a missed entry path in the user's Safari tab: opening `web/index.html` directly failed to load the root-relative assets, leaving an unstyled page stuck on “Connecting.” Relative assets and a deferred classic script now render a clearly labeled file preview with startup instructions, working command copying, and disabled server actions. The working dashboard was then started through the real CLI and opened in Safari; a local recommendation returned successfully. The live dashboard was also checked at 390px with matching page client and scroll widths.
+
+The same review reproduced an existing tab failing to adopt a newly opened access URL. Missing and expired sessions now reconnect in that tab without losing the entered draft, and consume the token fragment. Five offline frontend regression tests cover file asset resolution, preview startup without API calls or polling, reload persistence, token adoption, and stale-response handling. These tests execute the shipped script in a minimal DOM harness; native browser behavior was checked separately. No provider task was launched during these checks.
 
 MCP was tested through the packaged command entry point with initialization, tool discovery and calls. This establishes stdio protocol behavior. It does not establish installation into every desktop app, nor automatic effort control of a host conversation.
 

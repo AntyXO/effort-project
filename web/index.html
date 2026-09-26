@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="light">
     <meta name="description" content="A transparent local effort controller for coding agents. Inspect recommendations and the evidence behind every managed run.">
     <title>Effort — Local control</title>
-    <link rel="stylesheet" href="/style.css">
-    <script src="/app.js" type="module"></script>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./app.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to dashboard</a>
@@ -55,6 +55,14 @@
       </nav>
 
       <div class="notice" id="status-notice" role="status" hidden></div>
+      <noscript><p class="notice">JavaScript is needed to connect to the local dashboard. Enable it, run <code>npm start</code> from the Effort project folder, then open the local URL printed in your terminal.</p></noscript>
+
+      <section class="local-file-help" id="local-file-help" aria-labelledby="local-file-title" hidden>
+        <h2 id="local-file-title">Start the local dashboard</h2>
+        <p>You opened the HTML file directly. To use recommendations and run history, open a terminal in the Effort project folder and run:</p>
+        <div class="command-box"><code id="command-dashboard">npm start</code><button class="copy-button" type="button" data-copy="command-dashboard" aria-label="Copy dashboard start command">Copy</button></div>
+        <p>Keep that terminal running and open the <code>http://127.0.0.1:…</code> URL it prints. This file is a preview; it cannot connect to your local run history.</p>
+      </section>
 
       <div class="work-grid" id="work-grid">
         <section class="panel sandbox-panel" id="sandbox" aria-labelledby="sandbox-title">

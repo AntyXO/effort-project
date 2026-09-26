@@ -13,6 +13,10 @@ Retries are sequential and operate on the same workspace. Effort does not reset,
 
 The current mechanism is adaptive across managed attempts. It does not change a model request mid-generation. It does not classify every internal tool result in real time. Work toward finer control must use provider-supported boundaries and verified effort readback.
 
+The experimental automatic layer adds a bounded, in-memory per-conversation router. It preserves effort on ambiguous continuations, requires two clearly simpler prompts before downgrading, and selects only supported levels within explicit bounds. No prompt is retained in routing history. Model switching requires an explicit effort-to-model table and is available only in the managed-chat and Codex terminal paths.
+
+OpenCode hooks capture the user prompt and apply an existing model variant before provider execution. Managed chat reuses the current adapters and their provider session IDs. The Codex prototype transparently routes the official terminal's app-server messages and rewrites eligible `turn/start` requests after capability discovery. The WebSocket dependency and native terminal acceptance are pending; this route is not a desktop integration. The dashboard and MCP server keep their existing advisory/read-only boundaries. [Automatic integration details](automatic.md) describe permissions, session lifetime, evidence, and limitations.
+
 ## Evaluate before learning
 
 Use fixed medium, fixed high, prompt-only rules, and medium-with-escalation as initial baselines. Use identical clean repository snapshots, fixed model/harness versions, independently assessed outcomes, random execution order, and repeated runs. Count the cost of failures and retries. Predefine the acceptable quality difference and report uncertainty; a small pilot cannot establish quality equivalence.

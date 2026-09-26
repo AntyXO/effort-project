@@ -6,6 +6,6 @@ Use `effort config codex` for a TOML entry or `effort config claude` for a JSON 
 
 Codex CLI's local MCP configuration is documented at https://developers.openai.com/codex/mcp . Codex desktop availability depends on the installed app/version. Claude desktop and Claude Code use distinct configuration surfaces; see https://code.claude.com/docs/en/mcp and your desktop app's current local MCP settings. A browser-only connector that expects a hosted URL cannot use this stdio server directly.
 
-The tools can recommend effort and explain observations. They have no supported access to the effort selector of an arbitrary active host chat. To apply a recommendation, use the host's selector. Automatic adaptation is available only when launching a managed CLI task with `effort run`.
+The tools can recommend effort and explain observations. They have no supported access to the effort selector of an arbitrary active host chat. To apply a recommendation, use the host's selector. Separate experimental integrations support automatic selection in OpenCode and an Effort-managed Claude session; a Codex terminal transport is under development. See [automatic integration setup](automatic.md). Registering the advisory MCP server does not activate these integrations.
 
 Protocol tests prove initialization, tool discovery and calls. They do not prove installation in every desktop app, every app version, or a native effort change. The validation report names the surfaces actually tested.

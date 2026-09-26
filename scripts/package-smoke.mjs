@@ -40,6 +40,14 @@ try {
   assert.match(execute([entry, '--help']), /The Effort Project/);
   const recommendation = JSON.parse(execute([entry, 'recommend', 'Rename a local variable', '--json']));
   assert.equal(recommendation.effort, 'low');
+  const automatic = JSON.parse(execute([entry, 'auto', 'claude', '--dry-run']));
+  assert.equal(automatic.willExecute, false);
+  assert.equal(automatic.desktopControl, false);
+  assert.equal(automatic.allowWrite, false);
+  const { default: openCodePlugin } = await import(pathToFileURL(join(installed, 'src/integrations/opencode.mjs')).href);
+  assert.equal(typeof openCodePlugin, 'function');
+  assert.equal(typeof (await openCodePlugin({ directory: scratch }))['chat.params'], 'function');
+  assert.ok((await readFile(join(installed, 'docs/automatic.md'), 'utf8')).includes('Automatic effort routing'));
 
   const messages = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
@@ -68,7 +76,7 @@ try {
   const status = await fetch(base + '/api/status', { headers: { Authorization: `Bearer ${running.token}` } });
   assert.equal(status.status, 200);
   assert.equal((await status.json()).stats.tasks, 0);
-  console.log('Packed and installed offline: CLI, MCP, dashboard assets and authenticated API passed.');
+  console.log('Packed and installed offline: CLI, automatic dry-run, OpenCode plugin import, MCP, dashboard assets and authenticated API passed.');
 } finally {
   if (server) await new Promise(done => server.close(done));
   await rm(scratch, { recursive: true, force: true });

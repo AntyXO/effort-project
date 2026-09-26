@@ -2,9 +2,11 @@
 
 **Spend reasoning where it helps. Understand every decision.**
 
-Effort is a free, local tool that recommends reasoning levels, runs coding tasks through supported agent CLIs, checks their results, and can raise effort on a later attempt when the same check keeps failing. A local dashboard shows what happened. MCP tools bring recommendations into compatible desktop apps.
+Effort is a free, local tool that recommends reasoning levels, runs coding tasks through supported agent CLIs, checks their results, and can raise effort on a later attempt when the same check keeps failing. Experimental automatic integrations now select effort before each user prompt in OpenCode or an Effort-managed Claude conversation. A Codex terminal router is also in development. A local dashboard shows managed-run history; MCP tools bring recommendations into compatible desktop apps.
 
 **Status: experimental 0.1.0.** This is a transparent rules controller, not a trained predictor. It has not demonstrated lower cost at equivalent coding quality. See [validation](docs/validation.md) for what was actually tested. Provider subscriptions or API usage are separate; the software is free.
+
+Continuing development? Start with the [automatic routing handoff](docs/HANDOFF.md) for implemented pieces, verified checks, and remaining work.
 
 ## What works where
 
@@ -12,6 +14,9 @@ Effort is a free, local tool that recommends reasoning levels, runs coding tasks
 | --- | --- | --- |
 | Codex CLI | Launch/resume managed tasks with explicit effort per turn | Changes apply at managed turn boundaries; no control of unrelated sessions |
 | Claude Code CLI | Launch/resume with explicit effort per invocation | Provider policy can constrain effort; no measurement of internal reasoning |
+| Claude automatic session | Select effort before each prompt and resume the conversation | Effort's text UI; existing CLI adapter restrictions apply |
+| OpenCode plugin | Apply an advertised native effort variant before requests | Explicit settings win; selected model stays unchanged |
+| Codex automatic terminal | Source prototype for per-prompt routing through the official TUI | WebSocket dependency and terminal acceptance pending; experimental transport |
 | Codex desktop app | Offer recommendations via local MCP | Cannot automatically change the active conversation's effort |
 | Claude desktop / Code app | Offer recommendations if that surface supports local MCP | Host setup and capability vary; no claim of universal native control |
 | Other AI tools | Portable advisory MCP tools | Requires a local stdio MCP host; no adapter or effort mapping is assumed |
@@ -67,6 +72,16 @@ Use `--provider claude` for Claude Code. Its adapter allows restricted file edit
 The defaults are three attempts, 120 seconds total, and a `high` ceiling. Use `--effort low` to override the initial recommendation, `--max-effort medium` to set a lower ceiling, or `--model` to choose a model explicitly. Supported levels are checked by adapters; an unsupported model/effort is not silently replaced. There is no universal dollar cap: timeout, attempt, and effort bounds limit activity, but do not guarantee a final bill.
 
 The first recognized test failure can trigger another attempt at the same effort. Repeated matching failures can raise effort for the next managed turn. Access, permission, missing dependency, timeout, and unclassified failures stop instead. Passing the selected check means **that check passed**, not that all requirements are satisfied. Exit status is 0 for completed verified/unverified tasks, 2 for blocked/failed/cancelled tasks, and 1 for invalid CLI input.
+
+## Automatic sessions
+
+```sh
+effort auto claude --cwd /path/to/project
+effort config opencode
+effort auto codex --cwd /path/to/project --dry-run
+```
+
+The Claude session chooses effort for each submitted line and resumes the same conversation. The OpenCode command prints the native plugin wrapper to install in the selected project. Codex dry-run validates the prototype launcher configuration without starting it. Read [automatic setup and current boundaries](docs/automatic.md) before enabling an integration. Existing desktop conversations are not automatically controlled. Optional model routing requires an explicit table of model IDs; the default keeps your model unchanged.
 
 ## Desktop apps and MCP
 

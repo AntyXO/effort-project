@@ -2,11 +2,19 @@
 
 Release: **0.1.0 experimental**, checked September 26, 2026. Development host: macOS, Node 24.16.0. This is a functional acceptance record, not a study of coding quality or cost savings.
 
+## Automatic integration prototype
+
+The local prototype adds **79 tests**: 9 shared routing-policy tests, 7 CLI/configuration tests, 18 managed-session tests, 20 OpenCode hook tests, 17 Codex routing tests, and 8 transport lifecycle tests. **All 154 tests passed locally with no failures or skips**; 30 JavaScript files passed syntax checks. The packed archive also passed an offline temporary install with automatic CLI dry-run and OpenCode plugin import, alongside the existing MCP/dashboard checks.
+
+Transport tests use real loopback TCP/HTTP and fixture subprocesses but inject a mocked WebSocket implementation. They establish authentication gates, request rewriting, transparent approvals/cancellation, hidden internal discovery responses, immediate-startup cancellation, and child cleanup. They do **not** establish compatibility with the actual WebSocket library or official Codex terminal. The `ws` dependency is not installed/enabled in this build. The launcher stops before starting a provider when it is unavailable.
+
+OpenCode hooks were checked against v1.18.32 source contracts. The managed Claude session uses the existing restricted CLI adapter and verified session-resume semantics in fake-process tests. No new native OpenCode acceptance, official Codex terminal acceptance, billed automatic-session model runs, desktop attachment, or savings evaluation was performed. Historical adapter live checks below are separate evidence.
+
 ## Deterministic acceptance
 
 The release suite covers the policy and its uncertainty, effort caps, repeated-failure recovery, environment/authentication stops, session preservation, unsupported models, approval denial, malformed and excessive provider output, subprocess timeout/abort cleanup, usage accounting, private metadata boundaries, MCP negotiation/calls/termination, and dashboard authentication/Host/Origin checks.
 
-On the development host, **75 tests passed, with zero failures or skips**. The JavaScript syntax check also passed.
+Before the automatic prototype, the development host passed **75 tests, with zero failures or skips**. The JavaScript syntax check also passed. The current expanded local suite is reported above.
 
 Run `npm test` and `npm run check`. Ordinary tests use fake providers and temporary fixtures, make no paid model calls, and do not modify provider configuration. The public [CI workflow](https://github.com/AntyXO/effort-project/actions/workflows/ci.yml) runs Node 22 and 24 on Linux, macOS, and Windows; refer to the actual run for platform results. POSIX-only process-group assertions are explicitly skipped on Windows.
 

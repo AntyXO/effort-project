@@ -10,5 +10,7 @@ Effort is an experimental local controller. Use a disposable checkout for initia
 - Effort metadata is local, but provider programs maintain their own authentication, transcript, logging, hooks and tool behavior. Adapter docs describe which customizations are disabled. Do not publish provider logs, auth files, dashboard tokens, private prompts, or `.env` files.
 - Time and attempt limits reduce runaway execution but do not impose a universal billing cap. Usage can be unavailable or cumulative; unknown values remain null.
 - Local MCP tools are advice only. They cannot reduce your app's effort setting or silently change permission settings.
+- Automatic integrations are opt-in. The OpenCode plugin changes provider request options and preserves explicit variants/configuration. Managed automatic chat retains the existing adapter restrictions. The Codex terminal prototype passes native approval and sandbox messages through; it does not auto-approve them. Its proposed WebSocket listener binds only to loopback and requires a random token, rejects browser origins, and accepts one client.
+- Automatic decisions use local rules, not verified difficulty estimates. A user-supplied model routing table may change provider costs. Unsupported host controls preserve native requests or stop managed execution; they are never represented as confirmed internal model behavior.
 
 For a suspected vulnerability, use GitHub's private vulnerability reporting when available, or contact the repository owner privately. Do not include credentials or private code in a public issue.

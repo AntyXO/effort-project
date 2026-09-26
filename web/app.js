@@ -9,6 +9,12 @@ let lastTaskTrigger = null;
 let detailRequest = 0;
 let recommendationRequest = 0;
 let toastTimeout;
+let initialLayoutSet = false;
+let userInteracted = false;
+
+for (const event of ['pointerdown', 'keydown', 'wheel', 'touchstart']) {
+  document.addEventListener(event, () => { userInteracted = true; }, { once: true, capture: true, passive: true });
+}
 
 function readToken() {
   const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -42,7 +48,14 @@ function label(value, fallback = 'Not recorded') {
 }
 
 function providerName(value) {
-  return ({ codex: 'Codex', claude: 'Claude', generic: 'Generic' })[value] || label(value, 'Unknown provider');
+  return ({ codex: 'Codex', claude: 'Claude', generic: 'Other tools' })[value] || label(value, 'Unknown provider');
+}
+
+function effortTransition(task) {
+  const initial = task.initialEffort ? label(task.initialEffort) : null;
+  const latest = task.effort ? label(task.effort) : null;
+  if (initial && latest) return initial === latest ? latest : `${initial} to ${latest}`;
+  return latest || (initial ? `${initial} initially` : null);
 }
 
 function count(value) {
@@ -119,18 +132,32 @@ async function api(path, options = {}) {
   }
 }
 
-function makeEmpty(title, description, actionLabel, onAction, symbol = '↳') {
+function makeEmpty(title, description, actionLabel, onAction) {
   const empty = node('div', 'empty-state');
-  const glyph = node('span', 'empty-symbol', symbol);
-  glyph.setAttribute('aria-hidden', 'true');
-  empty.append(glyph, node('h3', '', title), node('p', '', description));
+  empty.append(node('h3', '', title), node('p', '', description));
   if (actionLabel) {
-    const action = node('button', 'text-link', `${actionLabel}  ↗`);
+    const action = node('button', 'text-link', actionLabel);
     action.type = 'button';
     action.addEventListener('click', onAction);
     empty.append(action);
   }
   return empty;
+}
+
+function setHistoryState(tasks) {
+  const state = Array.isArray(tasks) ? (tasks.length ? 'populated' : 'empty') : 'error';
+  $('#main').dataset.historyState = state;
+  if (initialLayoutSet || state === 'error') return;
+  initialLayoutSet = true;
+  if (userInteracted) return;
+  const grid = $('#work-grid');
+  const firstPanel = state === 'empty' ? $('#sandbox') : $('#history');
+  if (grid && firstPanel?.parentElement === grid && grid.firstElementChild !== firstPanel) {
+    grid.prepend(firstPanel);
+  }
+  if (![...document.querySelectorAll('.section-nav a')].some((link) => link.getAttribute('href') === location.hash)) {
+    updateNavigation(`#${firstPanel.id}`);
+  }
 }
 
 function renderStats(data) {
@@ -158,7 +185,10 @@ function renderHistory() {
   $('#status-filter').disabled = tasks.length === 0;
   $('#history-count').textContent = filter === 'all' ? `${tasks.length} ${tasks.length === 1 ? 'run' : 'runs'}` : `${visible.length} of ${tasks.length}`;
   if (tasks.length === 0) {
-    container.append(makeEmpty('A clean slate.', 'Your managed runs will appear here, along with their effort decisions and verification results.', 'Set up your first run', () => {
+    container.append(makeEmpty('No managed runs yet', 'Runs started from the CLI will appear here with their effort decisions and verification results.', 'Set up your first run', () => {
+      history.pushState(null, '', '#setup');
+      navigationTarget = '#setup';
+      updateNavigation('#setup');
       $('#setup').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
       $('#command-doctor').parentElement.querySelector('button').focus({ preventScroll: true });
     }));
@@ -178,19 +208,22 @@ function renderHistory() {
     const button = node('button', 'task-button');
     button.type = 'button';
     button.dataset.runId = present(task.id, '');
-    button.setAttribute('aria-label', `Inspect ${providerName(task.provider)} run ${present(task.id, 'unknown')}, ${label(task.status, 'unknown outcome')}`);
+    const provider = providerName(task.provider);
+    const created = dateLabel(task.createdAt);
+    button.setAttribute('aria-label', `Inspect ${provider}${task.model ? ` ${task.model}` : ''} run${created !== 'Time not recorded' ? ` from ${created}` : ''}, ${label(task.status, 'unknown outcome')}${task.id ? `, run ID ${shortId(task.id)}` : ''}`);
     const information = node('span', 'task-information');
-    const name = node('span', 'task-name', providerName(task.provider));
-    name.append(node('span', 'task-id', shortId(task.id)));
+    const name = node('span', 'task-name');
+    if (task.model) name.append(node('span', 'task-model', task.model));
+    name.append(node('span', 'task-provider', provider));
     const metadata = node('span', 'task-meta');
-    const initial = label(task.initialEffort, 'Unknown');
-    const current = label(task.effort, 'Unknown');
-    metadata.append(node('span', '', initial === current ? current : `${initial} → ${current}`));
-    metadata.append(node('span', '', Array.isArray(task.attempts) ? `${task.attempts.length} ${task.attempts.length === 1 ? 'attempt' : 'attempts'}` : 'Attempts unknown'));
-    metadata.append(node('span', '', dateLabel(task.createdAt)));
+    if (created !== 'Time not recorded') metadata.append(node('span', 'task-time', created));
+    const effort = effortTransition(task);
+    if (effort) metadata.append(node('span', '', `Effort: ${effort}`));
+    if (Array.isArray(task.attempts)) metadata.append(node('span', '', `${task.attempts.length} ${task.attempts.length === 1 ? 'attempt' : 'attempts'}`));
     information.append(name, metadata);
+    if (task.id) information.append(node('span', 'task-id', `Run ${shortId(task.id)}`));
     const outcome = node('span', 'task-outcome');
-    outcome.append(badge(task.status), node('span', 'task-open', 'Inspect ↗'));
+    outcome.append(badge(task.status), node('span', 'task-open', 'Inspect'));
     button.append(information, outcome);
     button.addEventListener('click', () => openTask(task.id, button));
     item.append(button);
@@ -219,15 +252,20 @@ function renderCapabilities(capabilities) {
     if (!capability || typeof capability !== 'object') continue;
     const row = node('article', 'capability');
     const name = node('div', 'capability-name');
-    const glyph = node('span', 'capability-icon', capability.id === 'codex' ? '>_' : capability.id === 'claude' ? '✳' : '↗');
-    glyph.setAttribute('aria-hidden', 'true');
-    name.append(glyph, node('span', '', present(capability.name, providerName(capability.id))));
+    name.append(node('span', '', present(capability.name, providerName(capability.id))));
     const control = node('div');
-    control.append(node('p', 'capability-control', label(capability.control, 'Control not specified')));
+    const summary = capability.control === 'managed-turns'
+      ? 'Managed CLI runs can set effort between attempts.'
+      : capability.control === 'advisory'
+        ? 'Offers advice only; host settings stay unchanged.'
+        : label(capability.control, 'Control not specified');
+    control.append(node('p', 'capability-summary', summary));
     const levels = Array.isArray(capability.levels) && capability.levels.length ? capability.levels.map((level) => present(level)).join(' · ') : 'Levels not specified';
-    control.append(node('p', 'capability-levels', levels));
+    control.append(node('p', 'capability-levels', `Effort levels: ${levels}`));
     const notes = Array.isArray(capability.notes) ? capability.notes.join(' ') : present(capability.notes, 'No additional capability notes.');
-    row.append(name, control, node('p', 'capability-notes', notes));
+    const details = node('details', 'capability-details');
+    details.append(node('summary', '', 'Integration details'), node('p', 'capability-control', label(capability.control, 'Control not specified')), node('p', 'capability-notes', notes));
+    row.append(name, control, details);
     container.append(row);
   }
 }
@@ -242,28 +280,32 @@ async function refresh({ silent = false } = {}) {
     if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('The local service returned an incomplete dashboard response. Try refreshing.');
     const fingerprint = JSON.stringify(result);
     const changed = fingerprint !== dashboardFingerprint;
+    const capabilitiesChanged = !dashboard || JSON.stringify(result.capabilities) !== JSON.stringify(dashboard.capabilities);
     dashboard = result;
     lastRefresh = new Date();
+    setHistoryState(result.tasks);
     if (changed) {
       renderStats(result);
       renderHistory();
-      renderCapabilities(result.capabilities);
+      if (capabilitiesChanged) renderCapabilities(result.capabilities);
       dashboardFingerprint = fingerprint;
     }
     $('#policy-label').textContent = result.policyVersion ? `Policy ${result.policyVersion}` : 'Policy version unavailable';
     $('#version-label').textContent = result.version ? `THE EFFORT PROJECT / v${result.version}` : 'THE EFFORT PROJECT / version unavailable';
     setConnection('connected', 'Local session');
     $('#connection').title = `Updated ${dateLabel(lastRefresh, true)}`;
+    if ($('#last-updated')) $('#last-updated').textContent = `Updated ${dateLabel(lastRefresh, true)}`;
     notice();
     if (!silent) announce(`Local history refreshed. ${Array.isArray(result.tasks) ? result.tasks.length : 'Unknown number of'} recent runs.`);
   } catch (error) {
+    $('#main').dataset.historyState = 'error';
     setConnection('error', token ? 'Disconnected' : 'Session needed');
     notice(`${error.message}${lastRefresh ? ` Showing the last successful update from ${dateLabel(lastRefresh, true)}.` : ''}`);
     if (!dashboard) {
       $('#stats').setAttribute('aria-busy', 'false');
       $('#history-count').textContent = 'Unavailable';
       $('#history-content').setAttribute('aria-busy', 'false');
-      $('#history-content').replaceChildren(makeEmpty('Connect to your local session', 'Keep the dashboard process running, then open the local URL it prints in your terminal.', 'Try again', () => refresh(), '↗'));
+      $('#history-content').replaceChildren(makeEmpty('Connect to your local session', 'Keep the dashboard process running, then open the local URL it prints in your terminal.', 'Try again', () => refresh()));
       renderCapabilities(null);
     }
   } finally {
@@ -273,16 +315,17 @@ async function refresh({ silent = false } = {}) {
   }
 }
 
-function renderRecommendation(result) {
+function renderRecommendation(result, provider) {
   const container = $('#recommendation');
   container.replaceChildren();
   if (!result || typeof result !== 'object' || !result.effort) throw new Error('The local policy returned an incomplete recommendation. Please try again.');
   const head = node('div', 'recommendation-head');
   const left = node('div');
-  left.append(node('p', 'recommendation-kicker', 'Suggested starting effort'), node('p', 'effort-value', label(result.effort)));
-  const confidence = node('span', 'confidence', result.confidence ? `${label(result.confidence)} confidence` : 'Confidence unavailable');
+  left.append(node('h3', 'effort-value', `Start at ${label(result.effort)}`));
+  const confidence = node('span', 'confidence', result.confidence ? `Rule estimate · ${label(result.confidence)} confidence` : 'Rule estimate · Confidence unavailable');
   head.append(left, confidence);
   container.append(head);
+  container.append(node('p', 'confidence-note', 'This policy uses fixed rules, not a trained predictor. Confidence is uncalibrated; it does not estimate the chance of success.'));
   const reasons = Array.isArray(result.reasons) ? result.reasons : [];
   if (reasons.length) {
     const list = node('ul', 'reasons-list');
@@ -291,9 +334,28 @@ function renderRecommendation(result) {
   } else {
     container.append(node('p', 'field-help', 'The policy did not supply a reason for this recommendation.'));
   }
-  const control = result.control ? `${label(result.control)}. ` : '';
+  const control = result.control ? `${label(result.control)} recommendation. ` : '';
   const policy = result.policyVersion ? `Policy ${result.policyVersion}. ` : '';
-  container.append(node('p', 'recommendation-note', `${control}${policy}This is a starting estimate, not a guarantee of difficulty or outcome.`));
+  container.append(node('p', 'recommendation-note', `${control}No settings changed. ${policy}This is a starting estimate, not a guarantee of difficulty or outcome.`));
+  const supportedCLI = ['codex', 'claude'].includes(provider) && ['low', 'medium', 'high'].includes(result.effort);
+  container.append(node('p', 'recommendation-handoff', supportedCLI
+    ? `For desktop use, choose ${label(result.effort)} in your app’s effort selector, if supported. Effort cannot change that setting.`
+    : 'Apply this advice manually only if your host supports the suggested level. Effort does not assume an effort mapping for other tools.'));
+  if (supportedCLI) {
+    const next = node('details', 'recommendation-next');
+    next.append(node('summary', '', 'Use this recommendation'));
+    next.append(node('p', '', 'Read-only CLI example: replace the task and repository path before running. Without an independent verification command, the run is unverified.'));
+    const commandBox = node('div', 'command-box');
+    const command = node('code', '', `effort run "YOUR TASK HERE" --provider ${provider} --cwd /path/to/repo --effort ${result.effort}`);
+    command.id = 'recommendation-command';
+    const copy = node('button', 'copy-button', 'Copy');
+    copy.type = 'button';
+    copy.dataset.copy = command.id;
+    copy.setAttribute('aria-label', 'Copy read-only CLI recommendation example');
+    commandBox.append(command, copy);
+    next.append(commandBox);
+    container.append(next);
+  }
   container.dataset.state = 'ready';
 }
 
@@ -301,11 +363,9 @@ function resetRecommendation() {
   recommendationRequest += 1;
   if ($('#recommendation').dataset.state === 'idle') return;
   const idle = node('div', 'recommendation-idle');
-  const glyph = node('span', 'idle-glyph', '↳');
-  glyph.setAttribute('aria-hidden', 'true');
   const description = node('p', '', 'Ready to assess.');
   description.append(node('br'), node('span', '', 'Choose “Recommend effort” to see the reasoning.'));
-  idle.append(glyph, description);
+  idle.append(description);
   $('#recommendation').replaceChildren(idle);
   $('#recommendation').dataset.state = 'idle';
 }
@@ -329,7 +389,7 @@ $('#recommend-form').addEventListener('submit', async (event) => {
   try {
     const result = await api('/api/recommend', { method: 'POST', body: JSON.stringify({ prompt, provider }) });
     if (requestId !== recommendationRequest) return;
-    renderRecommendation(result);
+    renderRecommendation(result, provider);
   } catch (error) {
     if (requestId !== recommendationRequest) return;
     const message = node('p', 'recommendation-error', error.message);
@@ -374,16 +434,40 @@ function evidenceLabel(evidence) {
 function renderTask(task) {
   const container = $('#task-dialog-content');
   container.replaceChildren();
-  $('#task-dialog-title').textContent = `${providerName(task.provider)} run ${shortId(task.id)}`;
+  $('#task-dialog-title').textContent = `${providerName(task.provider)} run${task.model ? ` · ${task.model}` : ''}`;
   const summary = node('dl', 'task-summary');
   addDefinition(summary, 'Outcome', badge(task.status));
   addDefinition(summary, 'Model', present(task.model));
   addDefinition(summary, 'Created', dateLabel(task.createdAt, true));
-  addDefinition(summary, 'Initial effort', label(task.initialEffort));
-  addDefinition(summary, 'Latest effort', label(task.effort));
-  addDefinition(summary, 'Run ID', present(task.id));
+  addDefinition(summary, 'Effort', effortTransition(task) || 'Not recorded');
   container.append(summary);
   container.append(node('p', 'detail-note', 'The history records decisions and outcomes. Task prompts, code, and command output are not shown here.'));
+  container.append(node('h3', 'detail-heading', 'Attempts & verification'));
+  if (Array.isArray(task.attempts) && task.attempts.length) {
+    const attempts = node('ol', 'attempt-list');
+    task.attempts.forEach((attempt, index) => {
+      const item = node('li', 'attempt');
+      const header = node('div', 'attempt-header');
+      header.append(node('h4', '', `Attempt ${present(attempt.number, index + 1)} · ${label(attempt.effort, 'Effort not recorded')}`), badge(attempt.status));
+      const verification = attempt.verification;
+      const checkResult = verification ? `${label(verification.status, 'Not recorded')}${verification.kind ? ` · ${label(verification.kind)}` : ''}` : 'Not recorded';
+      item.append(header, node('p', 'attempt-result', `Verification: ${checkResult}`));
+      const telemetry = node('details', 'attempt-telemetry');
+      telemetry.append(node('summary', '', 'Usage, timing, and evidence'));
+      const details = node('dl', 'attempt-details');
+      addDefinition(details, 'Verification exit code', typeof verification?.exitCode === 'number' ? String(verification.exitCode) : 'Not recorded');
+      addDefinition(details, 'Input / output', `${usageLabel(attempt.usage?.inputTokens)} / ${usageLabel(attempt.usage?.outputTokens)}`);
+      addDefinition(details, 'Cached input', usageLabel(attempt.usage?.cachedInputTokens));
+      addDefinition(details, 'Reported cost', typeof attempt.usage?.costUsd === 'number' && Number.isFinite(attempt.usage.costUsd) && attempt.usage.costUsd >= 0 ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 5 }).format(attempt.usage.costUsd) : 'Not reported');
+      addDefinition(details, 'Duration', typeof attempt.durationMs === 'number' && Number.isFinite(attempt.durationMs) && attempt.durationMs >= 0 ? `${(attempt.durationMs / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} seconds` : 'Not recorded');
+      telemetry.append(details, node('p', 'attempt-evidence', evidenceLabel(attempt.effortEvidence)));
+      item.append(telemetry);
+      attempts.append(item);
+    });
+    container.append(attempts);
+  } else {
+    container.append(node('p', 'detail-note', 'No attempts were recorded.'));
+  }
   container.append(node('h3', 'detail-heading', 'Effort decisions'));
   if (Array.isArray(task.decisions) && task.decisions.length) {
     const decisions = node('ol', 'decision-list');
@@ -396,28 +480,14 @@ function renderTask(task) {
   } else {
     container.append(node('p', 'detail-note', 'No effort decisions were recorded.'));
   }
-  container.append(node('h3', 'detail-heading', 'Attempts & verification'));
-  if (Array.isArray(task.attempts) && task.attempts.length) {
-    const attempts = node('ol', 'attempt-list');
-    task.attempts.forEach((attempt, index) => {
-      const item = node('li', 'attempt');
-      const header = node('div', 'attempt-header');
-      header.append(node('h4', '', `Attempt ${present(attempt.number, index + 1)} · ${label(attempt.effort, 'Effort not recorded')}`), badge(attempt.status));
-      const details = node('dl', 'attempt-details');
-      const verification = attempt.verification;
-      addDefinition(details, 'Verification', verification ? `${label(verification.status, 'Not recorded')}${verification.kind ? ` · ${label(verification.kind)}` : ''}` : 'Not recorded');
-      addDefinition(details, 'Verification exit code', typeof verification?.exitCode === 'number' ? String(verification.exitCode) : 'Not recorded');
-      addDefinition(details, 'Input / output', `${usageLabel(attempt.usage?.inputTokens)} / ${usageLabel(attempt.usage?.outputTokens)}`);
-      addDefinition(details, 'Cached input', usageLabel(attempt.usage?.cachedInputTokens));
-      addDefinition(details, 'Reported cost', typeof attempt.usage?.costUsd === 'number' && Number.isFinite(attempt.usage.costUsd) && attempt.usage.costUsd >= 0 ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 5 }).format(attempt.usage.costUsd) : 'Not reported');
-      addDefinition(details, 'Duration', typeof attempt.durationMs === 'number' && Number.isFinite(attempt.durationMs) && attempt.durationMs >= 0 ? `${(attempt.durationMs / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} seconds` : 'Not recorded');
-      item.append(header, details, node('p', 'attempt-evidence', evidenceLabel(attempt.effortEvidence)));
-      attempts.append(item);
-    });
-    container.append(attempts);
-  } else {
-    container.append(node('p', 'detail-note', 'No attempts were recorded.'));
-  }
+  const record = node('details', 'run-record');
+  record.append(node('summary', '', 'Run record details'));
+  const identifiers = node('dl', 'attempt-details');
+  addDefinition(identifiers, 'Run ID', present(task.id));
+  addDefinition(identifiers, 'Initial effort', label(task.initialEffort));
+  addDefinition(identifiers, 'Latest effort', label(task.effort));
+  record.append(identifiers);
+  container.append(record);
   container.append(node('p', 'detail-note', 'A passing verification result applies only to the selected command. Missing token or cost data means it was not reported; it does not mean usage was free.'));
 }
 
@@ -455,29 +525,46 @@ $('#status-filter').addEventListener('change', () => {
 });
 $('#refresh-button').addEventListener('click', () => refresh());
 
-for (const button of document.querySelectorAll('[data-copy]')) {
-  button.addEventListener('click', async () => {
-    const command = document.getElementById(button.dataset.copy)?.textContent;
-    if (!command) return;
-    try {
-      await navigator.clipboard.writeText(command);
-      button.textContent = 'Copied';
-      toast('Command copied.');
-      setTimeout(() => { button.textContent = 'Copy'; }, 2000);
-    } catch {
-      const range = document.createRange();
-      range.selectNodeContents(document.getElementById(button.dataset.copy));
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      toast('Copy was unavailable. The command is selected for manual copying.');
+document.addEventListener('click', async (event) => {
+  const button = event.target instanceof Element ? event.target.closest('button[data-copy]') : null;
+  if (!button) return;
+  const commandElement = document.getElementById(button.dataset.copy);
+  const command = commandElement?.textContent;
+  if (!command) return;
+  try {
+    await navigator.clipboard.writeText(command);
+    button.textContent = 'Copied';
+    toast('Command copied.');
+    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+  } catch {
+    if (!commandElement.isConnected) {
+      toast('The example changed. Open the current command and try copying again.');
+      return;
     }
-  });
-}
+    const range = document.createRange();
+    range.selectNodeContents(commandElement);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    toast('Copy was unavailable. The command is selected for manual copying.');
+  }
+});
 
-function updateNavigation() {
+let activeSection = null;
+let navigationTarget = null;
+
+for (const event of ['wheel', 'touchstart']) {
+  window.addEventListener(event, () => { navigationTarget = null; }, { passive: true });
+}
+window.addEventListener('keydown', (event) => {
+  if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(event.key)) navigationTarget = null;
+});
+
+function updateNavigation(hash = location.hash) {
   const links = [...document.querySelectorAll('.section-nav a')];
-  const activeHash = links.some((link) => link.getAttribute('href') === location.hash) ? location.hash : '#history';
+  const firstPanel = $('#work-grid')?.firstElementChild;
+  const activeHash = links.some((link) => link.getAttribute('href') === hash) ? hash : `#${firstPanel?.id || 'sandbox'}`;
+  activeSection = activeHash;
   for (const link of links) {
     const current = link.getAttribute('href') === activeHash;
     link.classList.toggle('nav-current', current);
@@ -486,8 +573,59 @@ function updateNavigation() {
   }
 }
 
-window.addEventListener('hashchange', updateNavigation);
+for (const link of document.querySelectorAll('.section-nav a')) {
+  link.addEventListener('click', () => {
+    navigationTarget = link.getAttribute('href');
+    updateNavigation(navigationTarget);
+  });
+}
+window.addEventListener('hashchange', () => {
+  navigationTarget = [...document.querySelectorAll('.section-nav a')].some((link) => link.getAttribute('href') === location.hash) ? location.hash : null;
+  updateNavigation();
+});
 updateNavigation();
+if ('IntersectionObserver' in window) {
+  const visibleSections = new Set();
+  const sections = [...document.querySelectorAll('.section-nav a')].map((link) => document.getElementById(link.getAttribute('href').slice(1))).filter(Boolean);
+  const updateVisibleNavigation = (entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) visibleSections.add(entry.target);
+      else visibleSections.delete(entry.target);
+    }
+    const visible = sections.filter((section) => visibleSections.has(section));
+    if (navigationTarget) {
+      if (!visible.some((section) => `#${section.id}` === navigationTarget)) return;
+      updateNavigation(navigationTarget);
+      navigationTarget = null;
+      return;
+    }
+    if (visible.some((section) => `#${section.id}` === activeSection)) return;
+    visible.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    if (visible.length) updateNavigation(`#${visible[0].id}`);
+  };
+  let observer;
+  let resizeFrame = 0;
+  const observeSections = () => {
+    observer?.disconnect();
+    visibleSections.clear();
+    const height = Math.max(1, document.documentElement.clientHeight);
+    const topInset = Math.floor(height * .15);
+    const bottomInset = Math.floor(height * .65);
+    observer = new IntersectionObserver(updateVisibleNavigation, {
+      rootMargin: `-${topInset}px 0px -${bottomInset}px 0px`,
+      threshold: 0,
+    });
+    for (const section of sections) observer.observe(section);
+  };
+  window.addEventListener('resize', () => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      observeSections();
+    });
+  }, { passive: true });
+  observeSections();
+}
 refresh();
 setInterval(() => {
   if (document.visibilityState === 'visible' && !$('#task-dialog').open && token) refresh({ silent: true });

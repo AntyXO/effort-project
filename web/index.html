@@ -17,7 +17,7 @@
           <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 29V20M16 29V13M24 29V7M32 29V17" stroke="currentColor" stroke-width="4" stroke-linecap="square"/></svg>
           <span class="brand-name">effort<span class="brand-period">.</span></span>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="brand-caption">LOCAL CONTROL</span>
+          <span class="brand-caption">Local dashboard</span>
         </a>
         <div class="header-tools">
           <span class="connection" id="connection" data-state="loading"><span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Connecting</span></span>
@@ -29,46 +29,66 @@
       </div>
     </header>
 
-    <main id="main" tabindex="-1" class="main-shell">
+    <main id="main" tabindex="-1" class="main-shell" data-history-state="loading">
       <section class="intro" aria-labelledby="page-title">
         <div class="intro-copy">
-          <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span>THE EFFORT PROJECT</p>
-          <h1 id="page-title">Your effort,<br><span>under control.</span></h1>
-          <p class="intro-description">Give each task a considered starting point.<br class="desktop-break"> Let verification guide the next attempt.</p>
+          <h1 id="page-title">Effort dashboard</h1>
+          <p class="intro-description">Recommend a starting effort. Inspect what happened.</p>
         </div>
-        <aside class="intro-note" aria-label="How Effort works">
-          <div class="flow" aria-hidden="true"><span>01</span><i></i><span>02</span><i></i><span>03</span></div>
-          <p class="flow-labels"><span>Assess</span><span>Run</span><span>Verify</span></p>
-          <p class="intro-note-text">A local policy. An explicit decision.<br>An evidence trail you can inspect.</p>
-          <span class="mode-label">Free software <span aria-hidden="true">·</span> Provider usage may cost</span>
-        </aside>
+        <details class="intro-help">
+          <summary>How it works</summary>
+          <ol>
+            <li>Get a local, rule-based effort recommendation.</li>
+            <li>Start a managed run from your terminal.</li>
+            <li>Review its attempts and verification results here.</li>
+          </ol>
+          <p>This dashboard offers advice and reads history. It does not launch agents or change your desktop app’s settings.</p>
+        </details>
       </section>
 
       <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#history" class="nav-current">Run history</a>
-        <a href="#sandbox">Recommendation sandbox</a>
+        <a href="#sandbox" class="nav-current">Recommend</a>
+        <a href="#history">Run history</a>
         <a href="#compatibility">Compatibility</a>
-        <a href="#setup">Get started <span aria-hidden="true">↗</span></a>
+        <a href="#setup">Setup</a>
         <span class="nav-meta" id="policy-label">Local policy</span>
       </nav>
 
       <div class="notice" id="status-notice" role="status" hidden></div>
 
-      <section class="stats" aria-label="Recent task outcomes, latest 100 runs" aria-busy="true" id="stats">
-        <div class="stat"><span class="stat-label">Recent runs</span><span class="stat-value" id="stat-tasks">—</span><span class="stat-caption">Latest 100 local records</span></div>
-        <div class="stat"><span class="stat-label"><span class="small-dot dot-success" aria-hidden="true"></span>Verified</span><span class="stat-value" id="stat-verified">—</span><span class="stat-caption">Verification command passed</span></div>
-        <div class="stat"><span class="stat-label"><span class="small-dot dot-amber" aria-hidden="true"></span>Unverified</span><span class="stat-value" id="stat-unverified">—</span><span class="stat-caption">No passing verification</span></div>
-        <div class="stat"><span class="stat-label"><span class="small-dot dot-muted" aria-hidden="true"></span>Stopped / blocked</span><span class="stat-value" id="stat-blocked">—</span><span class="stat-caption">Blocked, failed, or cancelled</span></div>
-      </section>
+      <div class="work-grid" id="work-grid">
+        <section class="panel sandbox-panel" id="sandbox" aria-labelledby="sandbox-title">
+          <div class="panel-heading"><h2 id="sandbox-title">Recommend effort</h2></div>
+          <p class="panel-description">Describe the task to get a starting level and the reasoning behind it.</p>
+          <form id="recommend-form">
+            <fieldset class="provider-fieldset"><legend>Target provider</legend><div class="provider-picker">
+              <label><input type="radio" name="provider" value="codex" checked><span>Codex</span></label>
+              <label><input type="radio" name="provider" value="claude"><span>Claude</span></label>
+              <label><input type="radio" name="provider" value="generic"><span>Other tools</span></label>
+            </div></fieldset>
+            <label class="field-label" for="task-prompt">What needs doing?</label>
+            <textarea id="task-prompt" name="prompt" rows="3" maxlength="16000" required placeholder="e.g. Fix a race condition in the job queue." aria-describedby="prompt-help"></textarea>
+            <p class="field-help" id="prompt-help">Assessed locally. This does not launch an agent.</p>
+            <button class="button button-primary recommend-button" id="recommend-button" type="submit"><span id="recommend-button-label">Recommend effort</span></button>
+          </form>
+          <div class="recommendation" id="recommendation" data-state="idle" aria-live="polite" aria-atomic="true">
+            <div class="recommendation-idle"><p>Your recommendation and next step will appear here.</p></div>
+          </div>
+        </section>
 
-      <div class="work-grid">
         <section class="panel history-panel" id="history" aria-labelledby="history-title">
           <div class="panel-heading">
-            <div><p class="eyebrow section-eyebrow">01 / OBSERVE</p><h2 id="history-title">The evidence trail</h2></div>
+            <h2 id="history-title">Run history</h2>
             <span class="small-label" id="history-count">Loading</span>
           </div>
+          <section class="stats" aria-label="Recent task outcomes, latest 100 runs" aria-busy="true" id="stats">
+            <div class="stat"><span class="stat-value" id="stat-tasks">—</span><span class="stat-label">Recent runs</span></div>
+            <div class="stat"><span class="stat-value" id="stat-verified">—</span><span class="stat-label">Verified</span></div>
+            <div class="stat"><span class="stat-value" id="stat-unverified">—</span><span class="stat-label">Unverified</span></div>
+            <div class="stat"><span class="stat-value" id="stat-blocked">—</span><span class="stat-label">Stopped</span><span class="stat-caption">Blocked, failed, cancelled</span></div>
+          </section>
           <div class="history-toolbar">
-            <p>Recent managed runs and their outcomes.</p>
+            <div><p>Latest 100 local runs.</p><span class="last-updated" id="last-updated">Waiting for local history</span></div>
             <label class="sr-only" for="status-filter">Filter runs by outcome</label>
             <select id="status-filter" disabled>
               <option value="all">All outcomes</option>
@@ -84,35 +104,17 @@
           </div>
           <div class="history-footnote"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M9 8v4m0-6v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><p>“Verified” means the selected verification command passed. It does not establish overall correctness.</p></div>
         </section>
-
-        <section class="panel sandbox-panel" id="sandbox" aria-labelledby="sandbox-title">
-          <div class="panel-heading"><div><p class="eyebrow section-eyebrow">02 / EXPLORE</p><h2 id="sandbox-title">Find a starting point</h2></div><span class="sandbox-tag">SANDBOX</span></div>
-          <p class="panel-description">Describe the work. See what the local policy recommends, and why.</p>
-          <form id="recommend-form">
-            <fieldset class="provider-fieldset"><legend>Target provider</legend><div class="provider-picker">
-              <label><input type="radio" name="provider" value="codex" checked><span>Codex</span></label>
-              <label><input type="radio" name="provider" value="claude"><span>Claude</span></label>
-              <label><input type="radio" name="provider" value="generic"><span>Generic</span></label>
-            </div></fieldset>
-            <label class="field-label" for="task-prompt">What needs doing?</label>
-            <textarea id="task-prompt" name="prompt" rows="4" maxlength="16000" required placeholder="e.g. Find why the queue processes the same job twice, then fix the race condition." aria-describedby="prompt-help"></textarea>
-            <p class="field-help" id="prompt-help">Assessed locally. This does not launch an agent.</p>
-            <button class="button button-primary recommend-button" id="recommend-button" type="submit"><span id="recommend-button-label">Recommend effort</span><span aria-hidden="true">↗</span></button>
-          </form>
-          <div class="recommendation" id="recommendation" data-state="idle" aria-live="polite" aria-atomic="true">
-            <div class="recommendation-idle"><span class="idle-glyph" aria-hidden="true">↳</span><p>Start with a task.<br><span>The reasoning will appear here.</span></p></div>
-          </div>
-        </section>
       </div>
 
       <section class="compatibility-section" id="compatibility" aria-labelledby="compatibility-title">
-        <div class="section-heading"><div><p class="eyebrow section-eyebrow">03 / KNOW THE BOUNDARY</p><h2 id="compatibility-title">Control, where it is supported.</h2></div><p>Managed CLI runs use verification to guide the next attempt.<br>Desktop integrations provide advice.</p></div>
+        <div class="section-heading"><h2 id="compatibility-title">Where Effort works</h2><p>Managed CLI runs can adapt effort between attempts. Desktop integrations provide advice.</p></div>
         <div class="compatibility-list" id="compatibility-list" aria-busy="true"><p class="muted compatibility-loading">Reading provider capabilities…</p></div>
         <p class="compatibility-footnote">Effort cannot change reasoning midway through a model response. Desktop advice does not change the app’s selected effort setting.</p>
       </section>
 
       <section class="setup-section" id="setup" aria-labelledby="setup-title">
-        <div class="section-heading"><div><p class="eyebrow section-eyebrow">04 / FROM YOUR TERMINAL</p><h2 id="setup-title">Make the next run count.</h2></div><p>This dashboard observes and recommends.<br>Start managed runs in your own repository.</p></div>
+        <div class="section-heading"><h2 id="setup-title">Start from your terminal</h2><p>Use these commands in your own repository. Provider CLIs must be installed and signed in.</p></div>
+        <p class="setup-help">Using the downloaded source without a global install? Replace <code>effort</code> with <code>node /absolute/path/to/effort-project/bin/effort.mjs</code>.</p>
         <div class="setup-grid">
           <article class="setup-item"><div class="setup-number">1</div><div class="setup-item-body"><h3>Check your environment</h3><p>See which local providers are available.</p><div class="command-box"><code id="command-doctor">effort doctor</code><button class="copy-button" type="button" data-copy="command-doctor" aria-label="Copy environment check command">Copy</button></div></div></article>
           <article class="setup-item"><div class="setup-number">2</div><div class="setup-item-body"><h3>Preview a decision</h3><p>Get a local recommendation from the command line.</p><div class="command-box"><code id="command-recommend">effort recommend "Fix a race condition in the queue" --provider codex</code><button class="copy-button" type="button" data-copy="command-recommend" aria-label="Copy recommendation command">Copy</button></div></div></article>
@@ -124,7 +126,7 @@
     </main>
 
     <dialog class="task-dialog" id="task-dialog" aria-labelledby="task-dialog-title">
-      <div class="dialog-header"><div><p class="eyebrow section-eyebrow">RUN DETAILS</p><h2 id="task-dialog-title">Inspect a run</h2></div><button class="dialog-close button button-quiet" id="dialog-close" type="button" aria-label="Close run details">Close <span aria-hidden="true">×</span></button></div>
+      <div class="dialog-header"><h2 id="task-dialog-title">Inspect a run</h2><button class="dialog-close button button-quiet" id="dialog-close" type="button" aria-label="Close run details">Close</button></div>
       <div id="task-dialog-content" class="dialog-content"></div>
     </dialog>
     <div class="toast" id="toast" role="status" hidden></div>

@@ -2,7 +2,7 @@
 
 Small, testable contributions are welcome. Open an issue describing the behavior, provider/CLI version, and reproduction steps before a large adapter or architecture change. Never include account tokens, prompt transcripts, or private code.
 
-Use Node 22+ and the built-in test runner. No dependency installation is required. Run `npm test` and `npm run check`. Tests must use temporary directories and fake processes by default; do not silently consume a contributor's model quota or edit their provider configuration.
+Use Node 22+ and the built-in test runner. No dependency installation is required. Run `npm test`, `npm run check`, and `npm run smoke:package`. The smoke check requires npm and uses only a temporary offline installation of the local package. Tests must use temporary directories and fake processes by default; do not silently consume a contributor's model quota or edit their provider configuration.
 
 For adapter changes, provide the exact supported effort control, resume semantics, cancellation behavior, permission boundary, and usage accounting scope. Test unsupported versions and failure cases. UI and docs must distinguish advice, requested effort, accepted configuration, and measured quality.
 

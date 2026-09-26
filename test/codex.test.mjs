@@ -7,7 +7,7 @@ import { run, capabilities } from '../src/adapters/codex.mjs';
 
 // This fixture is an independent JSONL server, not a mock of the adapter internals.
 const fixtureSource = String.raw`
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { spawn } from 'node:child_process';
 const mode = process.env.FIXTURE_MODE;
@@ -53,8 +53,9 @@ createInterface({ input:process.stdin }).on('line', line => {
     if(mode==='early-complete') return;
     if(mode==='hang-turn' || mode==='child') {
       if(mode==='child') {
-        const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
-        writeFileSync(process.env.CHILD_PID,String(child.pid));
+        // Record readiness from the child after installing its signal handler. It
+        // must survive SIGTERM, forcing the adapter's SIGKILL and reaping path.
+        spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.env.CHILD_PID,String(process.pid));setInterval(()=>{},1000)"],{stdio:'ignore'});
       }
       return;
     }
@@ -221,13 +222,20 @@ test('Codex abort interrupts a running turn and reaps descendants on POSIX', { s
   const controller = new AbortController();
   const resultPromise = run({ ...f.options, signal: controller.signal });
   let childPid;
-  for (let attempt = 0; attempt < 100; attempt++) {
+  t.after(() => {
+    controller.abort();
+    if (childPid) { try { process.kill(childPid, 'SIGKILL'); } catch {} }
+  });
+  for (let attempt = 0; attempt < 200; attempt++) {
     try { childPid = Number(await readFile(f.options.env.CHILD_PID, 'utf8')); break; } catch {}
     await new Promise((done) => setTimeout(done, 10));
   }
   assert.ok(childPid);
   controller.abort();
   assert.equal((await resultPromise).status, 'cancelled');
+  const log = await f.readLog();
+  assert.ok(log.some((message) => message.method === 'turn/interrupt'));
+  assert.throws(() => process.kill(log[0].pid, 0), { code: 'ESRCH' });
   assert.throws(() => process.kill(childPid, 0), { code: 'ESRCH' });
 });
 

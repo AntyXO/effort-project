@@ -12,6 +12,8 @@ Run `npm test` and `npm run check`. Ordinary tests use fake providers and tempor
 
 Independent review found and corrected four defects before publication: surviving verifier descendants; unstable failure signatures caused by test timing output; swallowed MCP termination signals; and hidden provider diagnostics. Real repeated failing Node tests now produce the same signature. Verification removes node:test's inherited nesting marker so the requested child tests actually execute.
 
+The first CI matrix also exposed a Codex cancellation race on macOS/Node 24: the parent could close before a descendant was reaped. A stronger fixture reproduced that failure locally by making the child ignore SIGTERM. The adapter now confirms process-group disappearance with a bounded deadline. All 32 Codex tests and 20 repeated stubborn-child cancellations passed after the fix; the child-absence assertions remain strict.
+
 ## Live provider checks
 
 | Check | Version/model | Evidence and limit |
@@ -32,6 +34,8 @@ Provider tests used disposable workspaces. Codex used a separate local runtime d
 The actual local dashboard was inspected in a browser: real empty/history states, high and low recommendations, keyboard submit, copy buttons, reload/session retention, 390px layout without horizontal overflow, dialogs and focus return, filtering, zero versus missing usage, untrusted strings rendered as text, and authentication/offline behavior. No browser console errors were observed. Full screen-reader testing was not performed.
 
 MCP was tested through the packaged command entry point with initialization, tool discovery and calls. This establishes stdio protocol behavior. It does not establish installation into every desktop app, nor automatic effort control of a host conversation.
+
+The download was built and installed into an isolated local prefix. CLI help/recommendation, MCP initialization/tool calls, dashboard HTML/JavaScript/CSS, and the authenticated API passed. `npm run smoke:package` automates this offline archive/install check in a temporary directory on every CI matrix job.
 
 A 10,000-call microbenchmark of the local rules on two short prompts measured p95 below 0.001 ms and maximum below 0.5 ms on this host. It excludes process startup, repository metadata scanning, provider startup and inference. It is not an end-to-end latency guarantee.
 

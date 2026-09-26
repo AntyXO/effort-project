@@ -18,6 +18,15 @@ const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)
 const emptyUsage = () => ({ inputTokens: null, outputTokens: null, cachedInputTokens: null, costUsd: null });
 const activeSessions = new Set();
 
+async function waitForProcessGroupExit(pid, timeoutMs) {
+  const deadline = performance.now() + timeoutMs;
+  while (true) {
+    try { process.kill(-pid, 0); } catch (error) { return error.code === 'ESRCH'; }
+    if (performance.now() >= deadline) return false;
+    await sleep(10);
+  }
+}
+
 class AdapterError extends Error {
   constructor(code, message, status = 'failed') {
     super(message);
@@ -129,11 +138,16 @@ class AppServer {
     this.child.stdin.end();
     await Promise.race([this.closedPromise, sleep(150)]);
     const pid = this.child.pid;
+    let cleanupConfirmed = true;
     if (pid && process.platform !== 'win32') {
       // Terminate the process group even if its leader exited but tool descendants remain.
       try { process.kill(-pid, 'SIGTERM'); } catch {}
-      await Promise.race([this.closedPromise, sleep(150)]);
-      try { process.kill(-pid, 'SIGKILL'); } catch {}
+      if (!await waitForProcessGroupExit(pid, 150)) {
+        try { process.kill(-pid, 'SIGKILL'); } catch {}
+        // The parent's close event does not establish that children are gone.
+        // Wait for the entire group, including children awaiting OS reaping.
+        cleanupConfirmed = await waitForProcessGroupExit(pid, 1000);
+      }
     } else if (pid && !this.closed) {
       const killer = spawn('taskkill.exe', ['/pid', String(pid), '/T', '/F'], { shell: false, stdio: 'ignore', windowsHide: true });
       await Promise.race([new Promise((done) => { killer.once('error', done); killer.once('close', done); }), sleep(1000)]);
@@ -145,6 +159,7 @@ class AppServer {
     this.child.stderr.destroy();
     this.child.stdin.destroy();
     this.buffer = '';
+    return cleanupConfirmed && this.closed;
   }
 }
 
@@ -336,7 +351,10 @@ export async function run({ prompt, cwd, effort, model, sessionId, allowWrite = 
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
-    if (server) await server.close(result.sessionId, turnId, submitted && !finished);
+    if (server && !await server.close(result.sessionId, turnId, submitted && !finished)) {
+      result.status = 'failed';
+      emit({ type: 'diagnostic', code: 'cleanup_timeout', message: 'Codex shutdown could not be confirmed within the cleanup time limit.' });
+    }
     if (registeredId) activeSessions.delete(registeredId);
   }
   const finalMessages = [...messages.values()].filter((message) => message.phase === 'final_answer');

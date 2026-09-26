@@ -96,10 +96,12 @@ Provider CLIs send prompts and task context to their providers and can retain th
 ```sh
 npm test
 npm run check
-npm pack --dry-run
+npm run smoke:package
 ```
 
 Deterministic tests use fake provider processes and do not consume model credits. Live tests are separately documented and never run in ordinary CI. CI targets Node 22/24 on Linux, macOS, and Windows; consult its actual result before claiming platform coverage.
+
+The package smoke check builds the downloadable archive, installs it offline in a temporary directory, and checks its CLI, MCP tools, dashboard assets and authenticated local API. It does not change your global installation.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/architecture.md), and the [adapter contract](docs/adapter-contract.md). Contributions that verify a real integration or improve evaluation are especially welcome. Please don't add adapters that merely print an effort label without setting a supported provider parameter.
 

@@ -12,6 +12,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "smoke:package": "node scripts/package-smoke.mjs",
     "start": "node bin/effort.mjs dashboard",
     "check": "node scripts/check.mjs"
   },
